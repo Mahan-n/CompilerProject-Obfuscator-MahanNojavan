@@ -152,7 +152,23 @@ class RenameIdentifiers(NodeVisitor):
 #   تبدیل خروجی تاپلِ parser به این کلاس‌ها
 # --------------------------------------------------
 def from_tuple(t: Any) -> Node:
+    """
+    تبدیل تاپلِ parser به گره‌های شیئی.
+    ابتدا عدد و رشته را چک می‌کنیم تا خطای
+    'int' object is not subscriptable رفع شود.
+    """
+    # ----- حالت‌های ساده (برگ) -----
+    if isinstance(t, int):
+        return Literal(t)
+
+    if isinstance(t, str):
+        if t.startswith('"'):          # رشته‌ی "%d"
+            return Literal(t)
+        return Identifier(t)           # نام متغیر یا تابع
+
+    # ------------------------------
     tag = t[0]
+
     if tag == 'program':
         return Program([from_tuple(x) for x in t[1]])
 
@@ -161,33 +177,26 @@ def from_tuple(t: Any) -> Node:
         return Declaration(typ, name)
 
     if tag == 'assign':
-        _, target_name, val = t
-        target = Identifier(target_name)
-        value  = Literal(val) if isinstance(val, int) else Identifier(val)
-        return Assign(target, value)
+        _, tgt, val = t
+        return Assign(Identifier(tgt), from_tuple(val))
 
     if tag == 'binop':
         _, op, left, right = t
         return BinOp(op, from_tuple(left), from_tuple(right))
 
     if tag == 'block':
-        _, stmts = t
-        return Block([from_tuple(s) for s in stmts])
+        _, lst = t
+        return Block([from_tuple(s) for s in lst])
 
     if tag == 'call':
         _, func, args = t
-        conv = lambda a: Literal(a) if isinstance(a, int) or (isinstance(a, str) and a.startswith('"')) else Identifier(a)
-        return Call(func, [conv(a) for a in args])
+        return Call(func, [from_tuple(a) for a in args])
 
     if tag == 'if':
         _, cond, blk = t
         return If(from_tuple(cond), from_tuple(blk))
 
-    # اگر به عدد یا رشته رسید
-    if isinstance(t, int):
-        return Literal(t)
-    if isinstance(t, str):
-        return Identifier(t)
+    # (می‌توان while و return را در صورت اضافه‌شدن گرامر، اینجا هندل کرد)
 
     raise ValueError(f"Unhandled tuple form: {t}")
 
