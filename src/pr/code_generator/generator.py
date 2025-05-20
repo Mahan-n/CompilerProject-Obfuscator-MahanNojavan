@@ -1,69 +1,89 @@
-class CodeGenerator:
+from lexer_parser.ast_nodes import *  # noqa: F401,F403
+
+
+class MiniCEmitter:
+    """Emit C code from the AST. Obfuscated naming version."""
+
     def __init__(self):
-        self.code = []
+        self._lines: list[str] = []  # collected source lines
 
-    def generate(self, node):
-        method_name = f'gen_{type(node).__name__}'
-        method = getattr(self, method_name, self.generic_gen)
-        return method(node)
+    # ------------------------------------------------------------------
+    # Public driver
+    # ------------------------------------------------------------------
+    def emit(self, node):
+        """Return C translation for *node* (expected: Program root)."""
+        self._dispatch(node)
+        return "\n".join(self._lines)
 
-    def generic_gen(self, node):
-        raise Exception(f"No code generator for {type(node).__name__}")
+    # ------------------------------------------------------------------
+    # Internal dispatch
+    # ------------------------------------------------------------------
+    def _dispatch(self, node):
+        handler_name = f"_on_{type(node).__name__}"
+        handler = getattr(self, handler_name, self._on_unknown)
+        return handler(node)
 
-    def gen_Program(self, node):
-        for func in node.functions:
-            self.generate(func)
-        return '\n'.join(self.code)
+    # ------------------------------------------------------------------
+    # Handlers for each AST node type
+    # ------------------------------------------------------------------
+    def _on_unknown(self, node):
+        raise RuntimeError(f"No emitter implemented for {type(node).__name__}")
 
-    def gen_Function(self, node):
-        params = ', '.join(f"int {name}" for _, name in node.params)
-        self.code.append(f"int {node.name}({params}) {{")
-        self.generate(node.body)
-        self.code.append("}")
+    def _on_Program(self, node: Program):  # noqa: N802
+        for fn in node.functions:
+            self._dispatch(fn)
 
-    def gen_Compound(self, node):
-        for stmt in node.statements:
-            self.generate(stmt)
+    def _on_Function(self, node: Function):  # noqa: N802
+        param_str = ", ".join(f"int {n}" for _, n in node.params)
+        self._lines.append(f"int {node.name}({param_str}) {{")
+        self._dispatch(node.body)
+        self._lines.append("}")
 
-    def gen_VarDecl(self, node):
-        self.code.append(f"{node.vtype} {node.name};")
+    def _on_Compound(self, node: Compound):  # noqa: N802
+        for st in node.statements:
+            self._dispatch(st)
 
-    def gen_Assignment(self, node):
-        expr = self.generate(node.expr)
-        self.code.append(f"{node.name} = {expr};")
+    def _on_VarDecl(self, node: VarDecl):  # noqa: N802
+        self._lines.append(f"{node.vtype} {node.name};")
 
-    def gen_If(self, node):
-        cond = self.generate(node.condition)
-        self.code.append(f"if ({cond}) {{")
-        self.generate(node.then_branch)
-        self.code.append("}")
+    def _on_Assignment(self, node: Assignment):  # noqa: N802
+        rhs = self._dispatch(node.expr)
+        self._lines.append(f"{node.name} = {rhs};")
+
+    def _on_If(self, node: If):  # noqa: N802
+        cond_code = self._dispatch(node.condition)
+        self._lines.append(f"if ({cond_code}) {{")
+        self._dispatch(node.then_branch)
+        self._lines.append("}")
         if node.else_branch:
-            self.code.append("else {")
-            self.generate(node.else_branch)
-            self.code.append("}")
+            self._lines.append("else {")
+            self._dispatch(node.else_branch)
+            self._lines.append("}")
 
-    def gen_While(self, node):
-        cond = self.generate(node.condition)
-        self.code.append(f"while ({cond}) {{")
-        self.generate(node.body)
-        self.code.append("}")
+    def _on_While(self, node: While):  # noqa: N802
+        cond_code = self._dispatch(node.condition)
+        self._lines.append(f"while ({cond_code}) {{")
+        self._dispatch(node.body)
+        self._lines.append("}")
 
-    def gen_Return(self, node):
-        expr = self.generate(node.expr)
-        self.code.append(f"return {expr};")
+    def _on_Return(self, node: Return):  # noqa: N802
+        val = self._dispatch(node.expr)
+        self._lines.append(f"return {val};")
 
-    def gen_BinOp(self, node):
-        left = self.generate(node.left)
-        right = self.generate(node.right)
-        return f"({left} {node.op} {right})"
+    # ------------------------------------------------------------------
+    # Expression helpers (return strings, do not write to _lines)
+    # ------------------------------------------------------------------
+    def _on_BinOp(self, node: BinOp):  # noqa: N802
+        lhs = self._dispatch(node.left)
+        rhs = self._dispatch(node.right)
+        return f"({lhs} {node.op} {rhs})"
 
-    def gen_Num(self, node):
+    def _on_Num(self, node: Num):  # noqa: N802
         return str(node.value)
 
-    def gen_Var(self, node):
+    def _on_Var(self, node: Var):  # noqa: N802
         return node.name
 
-    def gen_Call(self, node):
-        args = ', '.join(self.generate(arg) for arg in node.args)
-        return f"{node.func_name}({args})"
-
+    def _on_Call(self, node: Call):  # noqa: N802
+        args_code = ", ".join(self._dispatch(a) for a in node.args)
+        return f"{node.func_name}({args_code})"

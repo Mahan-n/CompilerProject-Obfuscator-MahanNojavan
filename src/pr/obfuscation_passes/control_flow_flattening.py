@@ -1,40 +1,51 @@
-import random
-from lexer_parser.ast_nodes import *
+from lexer_parser.ast_nodes import Assignment, Num, BinOp, Var, Compound, If, While
+from obfuscation_passes.base_pass import BaseObfuscationPass  # external contract
 
-def control_flow_flatten(ast):
-    for func in ast.functions:
-        flattened_stmts = []
-        dispatcher_name = "__state"
-        label_map = {}
-        body = func.body.statements
-        labels = list(range(len(body)))
 
-        # Map each real statement to a label
-        for i, label in enumerate(labels):
-            label_map[label] = body[i]
+class _CFGFlattener:
+    """Convert linear statement sequences into a dispatcher‑based loop."""
 
-        # Initial dispatcher variable
-        flattened_stmts.append(Assignment(dispatcher_name, Num(0)))
+    _STATE_VAR = "__sf"  # internal state variable name
 
-        # Build loop with chained if statements
-        loop_body = []
+    # --------------------------------------------------------------
+    # Transformation entry point
+    # --------------------------------------------------------------
+    def flatten(self, ast_root):
+        for fn in ast_root.functions:
+            # ORIGINAL statements
+            seq = fn.body.statements
+            if not seq:
+                continue
 
-        for label in labels:
-            condition = BinOp(Var(dispatcher_name), '==', Num(label))
-            stmt = label_map[label]
+            # Build dispatcher table
+            idx_range = list(range(len(seq)))
+            stmt_table = {idx: stmt for idx, stmt in enumerate(seq)}
 
-            # After executing this stmt, move to next state or -1 to exit
-            next_label = label + 1 if label + 1 < len(labels) else -1
-            update_dispatch = Assignment(dispatcher_name, Num(next_label))
-            block = Compound([stmt, update_dispatch])
+            # 1) Initialize state variable to 0
+            flattened = [Assignment(self._STATE_VAR, Num(0))]
 
-            loop_body.append(If(condition, block))
+            # 2) Construct loop body with per‑state if‑clauses
+            cases = []
+            for idx in idx_range:
+                cond = BinOp(Var(self._STATE_VAR), "==", Num(idx))
+                next_idx = idx + 1 if idx + 1 < len(idx_range) else -1
+                jump_stmt = Assignment(self._STATE_VAR, Num(next_idx))
+                cases.append(If(cond, Compound([stmt_table[idx], jump_stmt]), None))
 
-        # while (__state != -1) { ... }
-        loop = While(BinOp(Var(dispatcher_name), '!=', Num(-1)), Compound(loop_body))
-        flattened_stmts.append(loop)
+            loop_guard = BinOp(Var(self._STATE_VAR), "!=", Num(-1))
+            flatten_loop = While(loop_guard, Compound(cases))
+            flattened.append(flatten_loop)
 
-        # Replace the original body
-        func.body.statements = flattened_stmts
+            # Replace function body
+            fn.body.statements = flattened
+        return ast_root
 
-    return ast
+
+# ------------------------------------------------------------------
+# Public wrapper for the pass manager
+# ------------------------------------------------------------------
+class FlattenControlFlow(BaseObfuscationPass):
+    """Obfuscation pass: flattens structured control flow into a state machine."""
+
+    def apply(self, ast):
+        _CFGFlattener().flatten(ast)
