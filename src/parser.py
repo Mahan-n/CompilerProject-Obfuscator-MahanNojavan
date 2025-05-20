@@ -1,3 +1,5 @@
+# parser.py
+
 import ply.yacc as yacc
 import os, sys
 from lexer import tokens
@@ -51,7 +53,7 @@ def p_assignment(p):
     # p[1]=x, p[2]='=', p[3]=expr, p[4]=';'
     if p[2] != '=':
         raise SyntaxError("Expected '=' in assignment")
-    if p[4] != ';':
+    if p[5] != ';':
         raise SyntaxError("Missing ';' after assignment")
     p[0] = ('assign', p[1], p[3])
 
@@ -74,6 +76,7 @@ def p_expression_binop(p):
 def p_if_statement(p):
     '''if_statement : IF PUNCTUATION expression PUNCTUATION compound_stmt
                     | IF PUNCTUATION expression PUNCTUATION compound_stmt ELSE compound_stmt'''
+    # len==6 → بدون else, len==8 → با else
     if len(p) == 6:
         p[0] = ('if', p[3], p[5])
     else:
@@ -107,6 +110,7 @@ def p_compound_stmt(p):
 # -----------------------------------
 def p_call_statement(p):
     'call_statement : function_name PUNCTUATION argument_list PUNCTUATION PUNCTUATION'
+    # p[1]=name, p[2]='(', p[3]=args, p[4]=')', p[5]=';'
     p[0] = ('call', p[1], p[3])
 
 def p_function_name(p):
@@ -158,6 +162,6 @@ if __name__ == '__main__':
         print(f"❌ File '{filepath}' not found.")
         sys.exit(1)
 
-    code = open(filepath, 'r', encoding='utf-8').read()
-    ast  = parser.parse(code)
+    code   = open(filepath, 'r', encoding='utf-8').read()
+    ast    = parser.parse(code)
     print('\n🧩 AST:', ast)
