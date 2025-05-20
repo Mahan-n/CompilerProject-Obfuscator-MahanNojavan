@@ -1,38 +1,37 @@
-# CompilerProject-Obfuscator-MoienTalebi
-A college project for a compiler design course.
+# Mini-C Obfuscator
 
+*A pedagogical compiler front-end + source-to-source obfuscator (pure Python)*
 
+<div align="center">
+<img src="https://img.shields.io/badge/Python-3.9%2B-blue?logo=python"/>
+<img src="https://img.shields.io/badge/License-MIT-brightgreen"/>
+<img src="https://img.shields.io/badge/Project Phase-I (%F0%9F%93%8D)-orange"/>
+</div>
 
-#  Mini-C Obfuscator
-
-A Python-based tool that performs source-level obfuscation on a simplified version of the C language (Mini-C). Built for educational and research purposes.
-
----
-
-##  Features
-
--  **CLI Interface** with flexible obfuscation flags
--  **Obfuscation Techniques**:
-  - Rename Variables
-  - Remove Dead Code
-  - Insert Opaque Predicates
--  **Performance Metrics**: Original vs. Obfuscated size & time
--  **AST Visualization** with Graphviz
--  **Automated Testing** via `pytest`
--  **GitHub Actions CI** for auto-testing and quality control
+> 📚 Semester project &nbsp;•&nbsp; **Compiler Design (1403-2)**  
+> دانشگاه …
 
 ---
 
-##  Getting Started
+## Motivation & Goals
+“Real” optimising compilers are huge; for learning (or CTF challenges) we
+can get a lot of bang from a small *obfuscator*:
 
-###  Requirements
+* Parse a subset of C → build an **AST**
+* Apply **passes** that scramble identifiers, inject junk, flatten control flow …
+* Re-emit valid C that compiles cleanly—but is painful to read
 
-- Python 3.10+
-- Graphviz (for `dot` command):
-  - Windows: Install from [https://graphviz.org/download/](https://graphviz.org/download/)
-  - Add Graphviz `bin` to your system PATH.
+The code is split so every phase of a compiler pipeline is visible and hackable.
 
-###  Install dependencies
+---
 
-```bash
-pip install -r requirements.txt
+## Quick Demo
+
+```console
+$ python -m mini_c_obfuscator \
+    examples/fibonacci.mc  build/fibonacci_obf.c \
+    --rename-vars --insert-opaque --remove-dead-code --flatten
+
+[✓]  Parsed                         0.05 s
+[✓]  4 passes applied               0.02 s
+[✓]  Emitted C   ▲ +63 % size       0.01 s   → build/fibonacci_obf.c
