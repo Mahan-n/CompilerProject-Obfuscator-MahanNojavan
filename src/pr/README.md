@@ -35,3 +35,33 @@ $ python -m mini_c_obfuscator \
 [✓]  Parsed                         0.05 s
 [✓]  4 passes applied               0.02 s
 [✓]  Emitted C   ▲ +63 % size       0.01 s   → build/fibonacci_obf.c
+
+
+
+
+
+.
+├─ lexer_parser/
+│  ├─ lexer_refactored.py    # tokeniser
+│  ├─ parser_refactored.py   # grammar rules
+│  ├─ parsetab.py            # compressed LALR tables
+│  └─ ast_nodes.py
+├─ obfuscation_passes/
+│  ├─ base_pass.py
+│  ├─ rename_variables_refactored.py
+│  ├─ dead_code_inserter_refactored.py
+│  ├─ insert_opaque_predicates_refactored.py
+│  └─ control_flow_flatten_refactored.py
+├─ codegen_alt.py            # MiniCEmitter
+├─ cli_options.py            # fast arg parser
+├─ syntax_tree_visualizer.py # Graphviz helper
+├─ tests/                    # PyTest suite
+└─ README.md
+
+
+
+
+
+
+
+
