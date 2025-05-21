@@ -35,11 +35,7 @@ $ python -m mini_c_obfuscator \
 [✓]  Parsed                         0.05 s
 [✓]  4 passes applied               0.02 s
 [✓]  Emitted C   ▲ +63 % size       0.01 s   → build/fibonacci_obf.c
-
-
-
-
-
+zzz
 .
 ├─ lexer_parser/
 │  ├─ lexer_refactored.py    # tokeniser
