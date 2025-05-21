@@ -2,31 +2,45 @@ import random
 from lexer_parser.ast_nodes import If, BinOp, Num, Compound
 
 
-class OpaquePredicateInserter:
-    def insert(self, ast):
-        for func in ast.functions:
-            new_statements = []
-            for stmt in func.body.statements:
-                if random.random() < 0.5:  # 50% chance to wrap with opaque predicate
-                    opaque_if = self._make_opaque_if(stmt)
-                    new_statements.append(opaque_if)
+class _OpaqueGuardAdder:
+    """Inject no‑op conditional wrappers (opaque predicates) into AST blocks."""
+
+    WRAP_PROBABILITY = 0.5  # 50 % chance for each statement
+
+    # --------------------------------------------------------------
+    # Public API
+    # --------------------------------------------------------------
+    def inject(self, ast_tree):
+        # Iterate over top‑level functions only
+        for fn in ast_tree.functions:
+            wrapped_body = []
+            for stmt in fn.body.statements:
+                if random.random() < self.WRAP_PROBABILITY:
+                    wrapped_body.append(self._build_guard(stmt))
                 else:
-                    new_statements.append(stmt)
-            func.body.statements = new_statements
-        return ast
+                    wrapped_body.append(stmt)
+            fn.body.statements = wrapped_body
+        return ast_tree
 
-    def _make_opaque_if(self, stmt):
-        # Always true: (1 * 1 == 1)
-        inner = BinOp(left=Num(1), op='*', right=Num(1))
-        cond = BinOp(left=inner, op='==', right=Num(1))
-        return If(cond, Compound([stmt]), None)
+    # --------------------------------------------------------------
+    # Helper to craft a trivially true condition (opaque predicate)
+    # --------------------------------------------------------------
+    @staticmethod
+    def _build_guard(statement):
+        # Predicate: (1 * 1 == 1) — always true, yet non‑obvious at glance
+        opaque_left = BinOp(left=Num(1), op="*", right=Num(1))
+        opaque_cond = BinOp(left=opaque_left, op="==", right=Num(1))
+        return If(opaque_cond, Compound([statement]), None)
 
 
-# ✅ Wrapper for the obfuscation framework
+# ------------------------------------------------------------------
+# Public wrapper used by the obfuscator framework
+# ------------------------------------------------------------------
 from .base_pass import BaseObfuscationPass
 
 
 class InsertOpaquePredicates(BaseObfuscationPass):
+    """Pass that decorates statements with opaque if‑guards to confuse static analysis."""
+
     def apply(self, ast):
-        inserter = OpaquePredicateInserter()
-        inserter.insert(ast)
+        _OpaqueGuardAdder().inject(ast)

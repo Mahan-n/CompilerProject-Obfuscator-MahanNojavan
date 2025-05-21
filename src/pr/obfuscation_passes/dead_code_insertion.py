@@ -1,27 +1,47 @@
 import random
 from lexer_parser.ast_nodes import Assignment, Num
-from obfuscation_passes.base_pass import BaseObfuscationPass  # Make sure this exists
+from obfuscation_passes.base_pass import BaseObfuscationPass  # external dependency
 
-DEAD_VARS = ['useless', 'dummy', 'junk', 'tmp', 'waste']
+# ------------------------------------------------------------------
+#  Internal helpers / constants
+# ------------------------------------------------------------------
 
-def generate_dead_code():
-    var_name = random.choice(DEAD_VARS) + str(random.randint(100, 999))
-    value = random.randint(0, 1000)
-    return Assignment(var_name, Num(value))
+_FAKE_IDENTIFIERS = [
+    "useless", "dummy", "junk", "tmp", "waste", "garbage", "trash"
+]
 
-def insert_dead_code(ast):
-    for func in ast.functions:
-        new_statements = []
-        for stmt in func.body.statements:
+
+def _make_dummy_assignment():
+    """Create an assignment that has no effect on actual program semantics."""
+    var_label = random.choice(_FAKE_IDENTIFIERS) + str(random.randint(100, 999))
+    literal_val = random.randint(0, 1000)
+    return Assignment(var_label, Num(literal_val))
+
+
+def _inject_dead_code(ast_root):
+    """Traverse all function bodies and splice in benign assignments."""
+    for fn in ast_root.functions:
+        stitched_body = []
+        for stmt in fn.body.statements:
+            # Occasionally prepend a dummy statement (40% chance)
             if random.random() < 0.4:
-                new_statements.append(generate_dead_code())
-            new_statements.append(stmt)
-            if random.random() < 0.3:
-                new_statements.append(generate_dead_code())
-        func.body.statements = new_statements
-    return ast
+                stitched_body.append(_make_dummy_assignment())
 
-# ✅ Wrap it in a class so it works with the obfuscation framework
+            stitched_body.append(stmt)
+
+            # Occasionally append a dummy statement (30% chance)
+            if random.random() < 0.3:
+                stitched_body.append(_make_dummy_assignment())
+
+        fn.body.statements = stitched_body
+    return ast_root
+
+
+# ------------------------------------------------------------------
+#  Public pass wrapper (retains original class name for compatibility)
+# ------------------------------------------------------------------
 class RemoveDeadCode(BaseObfuscationPass):
+    """Ironically *adds* inert assignments to obscure program intent."""
+
     def apply(self, ast):
-        insert_dead_code(ast)
+        _inject_dead_code(ast)

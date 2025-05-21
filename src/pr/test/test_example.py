@@ -1,13 +1,20 @@
-# test/test_example.py
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from pathlib import Path
+
+# Ensure the project root is in sys.path for direct module imports
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from lexer_parser.parser import parser
 from obfuscation_passes.rename_variables import RenameVariables
-from codegen import CodeGenerator
+from codegen_refactored import CCodeGenerator  # updated import path and class name
 
-def test_rename_variables():
-    code = """
+
+def test_variable_renaming_pass():
+    """Verify that the RenameVariables pass replaces original identifiers."""
+
+    sample_source = """
     int main() {
         int x;
         int y;
@@ -16,10 +23,12 @@ def test_rename_variables():
         return y;
     }
     """
-    ast = parser.parse(code)
-    RenameVariables().apply(ast)
-    output = CodeGenerator().generate(ast)
 
-    # Test that original variable names are not in output
-    assert "x" not in output
-    assert "y" not in output
+    # Parse → transform → generate C
+    ast_tree = parser.parse(sample_source)
+    RenameVariables().apply(ast_tree)
+    generated_code = CCodeGenerator().generate_c_code(ast_tree)
+
+    # Ensure the original identifiers no longer appear in the output C code
+    assert "x" not in generated_code
+    assert "y" not in generated_code
